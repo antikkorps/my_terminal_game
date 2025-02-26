@@ -1,72 +1,77 @@
 <template>
   <div class="terminal-navbar bg-black border-b border-green-500 sticky top-0 z-50">
-    <div class="container mx-auto">
+    <div class="container mx-auto px-3">
       <!-- Barre de titre du terminal -->
-      <div class="bg-gray-800 flex items-center justify-between px-3 py-1">
+      <div class="bg-gray-800 flex items-center justify-between px-2 py-1">
         <div class="flex space-x-2 items-center">
-          <div class="w-3 h-3 bg-red-500 rounded-full"></div>
-          <div class="w-3 h-3 bg-yellow-500 rounded-full"></div>
-          <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+          <div class="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-red-500 rounded-full"></div>
+          <div class="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-yellow-500 rounded-full"></div>
+          <div class="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 rounded-full"></div>
         </div>
-        <div class="text-sm text-gray-400">terminal-master@{{ currentPath }}</div>
-        <div class="text-sm text-gray-400">{{ formattedTime }}</div>
+        <div
+          class="text-xs sm:text-sm text-gray-400 truncate max-w-[150px] sm:max-w-none"
+        >
+          terminal-master@{{ currentPath }}
+        </div>
+        <div class="text-xs sm:text-sm text-gray-400">{{ formattedTime }}</div>
       </div>
 
       <!-- Contenu de la navbar -->
       <div class="p-2 font-mono text-sm">
-        <div class="flex flex-wrap items-center justify-between">
-          <!-- Logo/Titre comme prompt terminal -->
+        <div class="flex items-center justify-between">
+          <!-- Logo/Titre comme prompt terminal - adapté pour mobile -->
           <NuxtLink
             to="/"
-            class="text-green-400 font-bold min-w-fit flex items-center hover:underline"
+            class="text-green-400 font-bold flex items-center hover:underline text-xs sm:text-sm whitespace-nowrap"
           >
-            <span class="hidden md:inline">root@terminal-master:</span
+            <span class="hidden sm:inline">root@</span><span>terminal-master:</span
             ><span class="text-blue-400">~</span><span class="text-white">#</span>
-            <span class="text-green-500 ml-2">./terminal-master</span>
+            <span class="text-green-500 ml-1 sm:ml-2 hidden xs:inline">./t-master</span>
+            <span class="text-green-500 ml-1 sm:ml-2 xs:hidden">./tm</span>
           </NuxtLink>
 
-          <!-- Navigation principale -->
+          <!-- Bouton menu mobile -->
+          <button
+            @click="isMenuOpen = !isMenuOpen"
+            class="px-2 py-1 text-green-400 sm:hidden bg-gray-800 rounded text-xs"
+          >
+            <span v-if="!isMenuOpen">$ menu</span>
+            <span v-else>$ exit</span>
+          </button>
+
+          <!-- Navigation principale - cachée sur mobile -->
           <div
-            class="flex flex-1 md:justify-center space-x-1 md:space-x-4 px-2 text-white overflow-x-auto py-1 terminal-tabs"
+            class="hidden sm:flex flex-1 justify-center space-x-1 lg:space-x-4 px-2 text-white overflow-x-auto py-1 terminal-tabs"
           >
             <NuxtLink
               v-for="(item, index) in menuItems"
               :key="index"
               :to="item.path"
-              class="terminal-tab px-3 py-1 rounded-t transition-colors duration-150"
+              class="terminal-tab px-2 py-1 rounded-t transition-colors duration-150 text-xs lg:text-sm whitespace-nowrap"
               :class="
                 isActive(item.path) ? 'bg-green-800 text-white' : 'hover:bg-gray-800'
               "
             >
               <span class="text-gray-400">$</span> {{ item.command }}
-              <span class="text-xs text-gray-400 hidden md:inline"
-                ><!-- {{ item.description }} --></span
-              >
             </NuxtLink>
           </div>
-
-          <!-- Bouton menu mobile -->
-          <button @click="isMenuOpen = !isMenuOpen" class="p-1 text-green-400 md:hidden">
-            <span v-if="!isMenuOpen">$ menu</span>
-            <span v-else>$ exit</span>
-          </button>
         </div>
 
         <!-- Menu mobile -->
         <div
           v-if="isMenuOpen"
-          class="md:hidden py-2 px-1 bg-gray-900 mt-2 rounded border border-gray-700"
+          class="sm:hidden py-2 px-1 bg-gray-900 mt-2 rounded border border-gray-700 text-xs"
         >
           <NuxtLink
             v-for="(item, index) in menuItems"
             :key="index"
             :to="item.path"
-            class="block py-1.5 px-2 hover:bg-gray-800 text-white"
+            class="block py-2 px-2 hover:bg-gray-800 text-white"
             :class="isActive(item.path) ? 'bg-green-900' : ''"
             @click="isMenuOpen = false"
           >
             <span class="text-gray-400">$</span> {{ item.command }}
-            <span class="text-gray-400">- {{ item.description }}</span>
+            <span class="text-gray-400 text-xs ml-1">- {{ item.description }}</span>
           </NuxtLink>
         </div>
       </div>
@@ -180,6 +185,25 @@ onUnmounted(() => {
   }
   50% {
     opacity: 0;
+  }
+}
+
+/* Ajout d'un breakpoint personnalisé pour les très petits écrans */
+@media (min-width: 400px) {
+  .xs\:hidden {
+    display: none;
+  }
+  .xs\:inline {
+    display: inline;
+  }
+}
+
+@media (max-width: 399px) {
+  .xs\:hidden {
+    display: inline;
+  }
+  .xs\:inline {
+    display: none;
   }
 }
 </style>

@@ -1,39 +1,48 @@
 <template>
   <div class="terminal bg-black border border-gray-700 rounded-lg overflow-hidden">
-    <div class="terminal-header bg-gray-800 p-2 flex justify-between items-center">
-      <div class="flex space-x-2">
-        <div class="w-3 h-3 bg-red-500 rounded-full"></div>
-        <div class="w-3 h-3 bg-yellow-500 rounded-full"></div>
-        <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+    <div
+      class="terminal-header bg-gray-800 p-1.5 sm:p-2 flex justify-between items-center"
+    >
+      <div class="flex space-x-1.5 sm:space-x-2">
+        <div class="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-red-500 rounded-full"></div>
+        <div class="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-yellow-500 rounded-full"></div>
+        <div class="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 rounded-full"></div>
       </div>
-      <div class="text-sm text-gray-400">{{ freeMode ? "bash" : currentDirectory }}</div>
+      <div class="text-xs sm:text-sm text-gray-400 truncate">
+        {{ freeMode ? "bash" : currentDirectory }}
+      </div>
     </div>
 
     <div
-      class="terminal-body p-4 font-mono text-sm overflow-y-auto h-96"
+      class="terminal-body p-2 sm:p-4 font-mono text-xs sm:text-sm overflow-y-auto h-[300px] sm:h-96 touch-auto"
       ref="terminalOutput"
+      @touchstart="handleTouchStart"
+      @touchmove="handleTouchMove"
     >
       <div v-for="(line, index) in outputLines" :key="index">
-        <div v-if="line.type === 'command'" class="flex">
-          <span class="text-green-400 mr-2"
+        <div v-if="line.type === 'command'" class="flex flex-wrap">
+          <span class="text-green-400 mr-2 whitespace-nowrap"
             >{{ currentUser }}@linux:{{ currentDirectory }}$</span
           >
-          <span>{{ line.content }}</span>
+          <span class="break-all">{{ line.content }}</span>
         </div>
         <div
           v-else-if="line.type === 'output'"
-          class="text-gray-300 whitespace-pre-wrap ml-0"
+          class="text-gray-300 whitespace-pre-wrap ml-0 break-all"
         >
           {{ line.content }}
         </div>
-        <div v-else-if="line.type === 'error'" class="text-red-400 whitespace-pre-wrap">
+        <div
+          v-else-if="line.type === 'error'"
+          class="text-red-400 whitespace-pre-wrap break-all"
+        >
           {{ line.content }}
         </div>
       </div>
 
       <!-- Ligne de commande active -->
-      <div class="flex">
-        <span class="text-green-400 mr-2"
+      <div class="flex flex-wrap">
+        <span class="text-green-400 mr-2 whitespace-nowrap"
           >{{ currentUser }}@linux:{{ currentDirectory }}$</span
         >
         <input
@@ -43,10 +52,22 @@
           @keydown.up="navigateHistory(-1)"
           @keydown.down="navigateHistory(1)"
           @keydown.tab.prevent="handleTabCompletion"
-          class="flex-1 bg-transparent text-white focus:outline-none"
+          class="flex-1 bg-transparent text-white focus:outline-none min-w-[150px] break-all"
           autocomplete="off"
           spellcheck="false"
         />
+      </div>
+
+      <!-- Boutons spéciaux pour mobile -->
+      <div class="mobile-controls mt-4 grid grid-cols-4 gap-1 sm:hidden">
+        <button
+          v-for="(cmd, index) in commonCommands"
+          :key="index"
+          @click="insertCommand(cmd)"
+          class="bg-gray-800 text-xs text-gray-300 py-1 px-2 rounded hover:bg-gray-700 truncate"
+        >
+          {{ cmd }}
+        </button>
       </div>
     </div>
   </div>
@@ -81,6 +102,13 @@ const currentUser = ref("user")
 const terminalOutput = ref(null)
 const commandInput = ref(null)
 
+// Commandes courantes pour les boutons mobiles
+const commonCommands = ref(["ls", "cd", "pwd", "cat", "clear", "help"])
+
+// Variables pour la détection de défilement tactile
+let touchStartY = 0
+let scrolling = false
+
 // Système de fichiers simulé
 const fileSystem = ref({
   "~": {
@@ -113,8 +141,34 @@ const focusAndScroll = async () => {
   }
 }
 
+// Gestionnaire d'événements tactiles
+const handleTouchStart = (e) => {
+  touchStartY = e.touches[0].clientY
+  scrolling = false
+}
+
+const handleTouchMove = (e) => {
+  const touchY = e.touches[0].clientY
+  const diff = touchStartY - touchY
+
+  if (Math.abs(diff) > 5) {
+    scrolling = true
+  }
+
+  // Permet au navigateur de gérer le défilement naturel
+}
+
+// Insérer une commande depuis les boutons
+const insertCommand = (cmd) => {
+  currentCommand.value = cmd + " "
+  commandInput.value?.focus()
+}
+
 // Exécute la commande saisie
 const executeCommand = () => {
+  // Si on est en train de défiler, ne pas exécuter de commande
+  if (scrolling) return
+
   const command = currentCommand.value.trim()
   if (!command) return
 
@@ -402,6 +456,11 @@ onMounted(() => {
       })
     }
   }
+
+  // Adapter commonCommands en fonction de la leçon
+  if (!props.freeMode && props.lesson.validCommands) {
+    commonCommands.value = props.lesson.validCommands.slice(0, 8) // Limiter à 8 boutons
+  }
 })
 
 // Réinitialisation lors du changement de leçon
@@ -436,5 +495,24 @@ watch(
 <style scoped>
 .terminal {
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6);
+}
+
+/* Styles pour optimiser l'entrée sur appareils mobiles */
+input,
+button {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  border-radius: 0;
+}
+
+/* Optimiser le défilement tactile */
+.touch-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Éviter que le texte ne dépasse de l'écran */
+.break-all {
+  word-break: break-all;
 }
 </style>

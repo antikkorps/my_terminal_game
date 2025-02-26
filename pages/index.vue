@@ -2,35 +2,39 @@
   <div class="flex flex-col bg-gray-900 text-white">
     <!-- Hero section avec terminal animé -->
     <section
-      class="flex-1 flex items-center justify-center p-6 py-20 relative overflow-hidden"
+      class="flex-1 flex items-center justify-center p-3 sm:p-6 py-10 sm:py-20 relative overflow-hidden"
     >
       <div class="absolute inset-0 bg-grid opacity-10"></div>
 
       <div
-        class="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 items-center relative z-10"
+        class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-center relative z-10"
       >
-        <div class="text-left">
-          <h1 class="text-5xl font-bold mb-6 text-green-500">
+        <div class="text-center md:text-left order-2 md:order-1">
+          <h1
+            class="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 sm:mb-6 text-green-500"
+          >
             <span class="block">Terminal</span>
             <span class="inline-block relative">
               Master
               <span class="absolute -right-4 top-0 animate-blink">_</span>
             </span>
           </h1>
-          <p class="text-xl mb-8 text-gray-300">
+          <p class="text-base sm:text-lg md:text-xl mb-6 sm:mb-8 text-gray-300">
             Maîtrisez le terminal Linux grâce à notre simulateur interactif. Pratiquez en
             toute sécurité et devenez un expert de la ligne de commande.
           </p>
-          <div class="flex flex-wrap gap-4">
+          <div
+            class="flex flex-col xs:flex-row gap-3 sm:gap-4 justify-center md:justify-start"
+          >
             <NuxtLink
               to="/tutorial"
-              class="px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 rounded-md hover:from-green-700 hover:to-green-800 transition transform hover:scale-105 shadow-lg"
+              class="px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-green-600 to-green-700 rounded-md hover:from-green-700 hover:to-green-800 transition transform hover:scale-105 shadow-lg text-center"
             >
               Commencer l'aventure
             </NuxtLink>
             <NuxtLink
               to="/playground"
-              class="px-6 py-3 bg-gray-700 bg-opacity-50 backdrop-blur-sm rounded-md border border-gray-600 hover:bg-gray-600 transition transform hover:scale-105"
+              class="px-4 sm:px-6 py-2 sm:py-3 bg-gray-700 bg-opacity-50 backdrop-blur-sm rounded-md border border-gray-600 hover:bg-gray-600 transition transform hover:scale-105 text-center"
             >
               Mode libre
             </NuxtLink>
@@ -39,26 +43,32 @@
 
         <!-- Terminal animé -->
         <div
-          class="terminal-demo bg-black rounded-lg overflow-hidden border border-gray-700 shadow-2xl"
+          class="terminal-demo bg-black rounded-lg overflow-hidden border border-gray-700 shadow-2xl order-1 md:order-2"
         >
           <div class="terminal-header bg-gray-800 p-2 flex justify-between items-center">
             <div class="flex space-x-2">
-              <div class="w-3 h-3 bg-red-500 rounded-full"></div>
-              <div class="w-3 h-3 bg-yellow-500 rounded-full"></div>
-              <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+              <div class="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-red-500 rounded-full"></div>
+              <div class="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-yellow-500 rounded-full"></div>
+              <div class="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 rounded-full"></div>
             </div>
-            <div class="text-sm text-gray-400">bash</div>
+            <div class="text-xs sm:text-sm text-gray-400">bash</div>
           </div>
-          <div class="p-4 font-mono text-sm h-64 overflow-hidden">
+          <div
+            class="p-3 sm:p-4 font-mono text-xs sm:text-sm h-48 sm:h-64 overflow-hidden"
+          >
             <p class="text-green-400">
               user@linux:~$ <TypeWriter text="ls -la" :speed="80" />
             </p>
             <div v-show="animationStep > 0" class="mt-2 text-gray-300">
               <p>total 20</p>
-              <p>drwxr-xr-x 5 user user 4096 Jul 15 10:24 .</p>
-              <p>drwxr-xr-x 22 user user 4096 Jul 15 10:20 ..</p>
-              <p>drwxr-xr-x 3 user user 4096 Jul 15 10:22 .config</p>
-              <p>-rw-r--r-- 1 user user 220 Jul 15 10:18 .bash_profile</p>
+              <p class="hidden xs:block">drwxr-xr-x 5 user user 4096 Jul 15 10:24 .</p>
+              <p class="hidden xs:block">drwxr-xr-x 22 user user 4096 Jul 15 10:20 ..</p>
+              <p class="hidden sm:block">
+                drwxr-xr-x 3 user user 4096 Jul 15 10:22 .config
+              </p>
+              <p class="hidden sm:block">
+                -rw-r--r-- 1 user user 220 Jul 15 10:18 .bash_profile
+              </p>
               <p>drwxr-xr-x 2 user user 4096 Jul 15 10:21 Documents</p>
               <p>-rw-r--r-- 1 user user 56 Jul 15 10:23 notes.txt</p>
             </div>
@@ -79,40 +89,48 @@
       </div>
     </section>
 
-    <!-- Section des statistiques avec compteurs animés -->
-    <section class="py-16 bg-gray-800">
-      <div class="container mx-auto px-6">
-        <h2 class="text-3xl font-bold mb-12 text-center">
+    <!-- Section des statistiques avec compteurs animés - corrigée pour mobile -->
+    <section class="py-10 sm:py-16 bg-gray-800">
+      <div class="container mx-auto px-4 sm:px-6">
+        <h2 class="text-xl sm:text-2xl md:text-3xl font-bold mb-8 sm:mb-12 text-center">
           Pourquoi Apprendre le Terminal?
         </h2>
 
-        <div class="grid md:grid-cols-4 gap-8 text-center">
-          <div class="p-6 bg-gray-700 rounded-lg transform transition hover:scale-105">
-            <div class="text-4xl font-bold text-green-400 mb-2">
+        <div class="grid grid-cols-2 gap-3 sm:gap-6 sm:grid-cols-2 md:grid-cols-4">
+          <div
+            class="p-4 sm:p-6 bg-gray-700 rounded-lg transform transition hover:scale-105"
+          >
+            <div class="text-xl sm:text-2xl md:text-4xl font-bold text-green-400 mb-2">
               <CountUp :endValue="40" :duration="2" suffix="%" />
             </div>
-            <p>Plus rapide que les interfaces graphiques</p>
+            <p class="text-xs sm:text-base">Plus rapide que les interfaces graphiques</p>
           </div>
 
-          <div class="p-6 bg-gray-700 rounded-lg transform transition hover:scale-105">
-            <div class="text-4xl font-bold text-green-400 mb-2">
+          <div
+            class="p-4 sm:p-6 bg-gray-700 rounded-lg transform transition hover:scale-105"
+          >
+            <div class="text-xl sm:text-2xl md:text-4xl font-bold text-green-400 mb-2">
               <CountUp :endValue="100" :duration="2" suffix="+" />
             </div>
-            <p>Commandes à découvrir</p>
+            <p class="text-xs sm:text-base">Commandes à découvrir</p>
           </div>
 
-          <div class="p-6 bg-gray-700 rounded-lg transform transition hover:scale-105">
-            <div class="text-4xl font-bold text-green-400 mb-2">
+          <div
+            class="p-4 sm:p-6 bg-gray-700 rounded-lg transform transition hover:scale-105"
+          >
+            <div class="text-xl sm:text-2xl md:text-4xl font-bold text-green-400 mb-2">
               <CountUp :endValue="15" :duration="2" />
             </div>
-            <p>Leçons interactives</p>
+            <p class="text-xs sm:text-base">Leçons interactives</p>
           </div>
 
-          <div class="p-6 bg-gray-700 rounded-lg transform transition hover:scale-105">
-            <div class="text-4xl font-bold text-green-400 mb-2">
+          <div
+            class="p-4 sm:p-6 bg-gray-700 rounded-lg transform transition hover:scale-105"
+          >
+            <div class="text-xl sm:text-2xl md:text-4xl font-bold text-green-400 mb-2">
               <CountUp :endValue="24" :duration="2" suffix="/7" />
             </div>
-            <p>Disponibilité</p>
+            <p class="text-xs sm:text-base">Disponibilité</p>
           </div>
         </div>
       </div>
@@ -303,5 +321,12 @@ onMounted(() => {
 
 .animate-blink {
   animation: blink 1s infinite;
+}
+
+/* Ajout d'un breakpoint personnalisé pour les très petits écrans */
+@media (min-width: 400px) {
+  .xs\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 </style>

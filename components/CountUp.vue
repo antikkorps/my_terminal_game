@@ -1,9 +1,9 @@
 <template>
-  <span>{{ displayValue }}{{ suffix }}</span>
+  <span ref="countElement">{{ displayValue }}{{ suffix }}</span>
 </template>
 
 <script setup>
-import { onMounted, ref, watch } from "vue"
+import { onMounted, onUnmounted, ref, watch } from "vue"
 
 const props = defineProps({
   endValue: {
@@ -20,8 +20,10 @@ const props = defineProps({
   },
 })
 
+const countElement = ref(null)
 const displayValue = ref(0)
 let animationId
+let observer = null
 
 const animate = (timestamp, startValue, endValue, startTime, duration) => {
   if (!startTime) {
@@ -51,20 +53,41 @@ const startAnimation = () => {
 }
 
 onMounted(() => {
-  // Utiliser IntersectionObserver pour démarrer l'animation quand l'élément est visible
-  const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          startAnimation()
-          observer.disconnect()
-        }
-      })
-    },
-    { threshold: 0.1 }
-  )
+  // Vérifier si IntersectionObserver est disponible (certains navigateurs mobiles anciens ne le supportent pas)
+  if ("IntersectionObserver" in window) {
+    observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            startAnimation()
+            // Déconnecter l'observer après avoir déclenché l'animation
+            if (observer) {
+              observer.disconnect()
+            }
+          }
+        })
+      },
+      { threshold: 0.1 }
+    )
 
-  observer.observe(document.querySelector("span"))
+    // Observer l'élément actuel
+    if (countElement.value) {
+      observer.observe(countElement.value)
+    }
+  } else {
+    // Fallback pour les navigateurs qui ne supportent pas IntersectionObserver
+    startAnimation()
+  }
+})
+
+onUnmounted(() => {
+  // Nettoyer l'animation et l'observer
+  cancelAnimationFrame(animationId)
+
+  if (observer) {
+    observer.disconnect()
+    observer = null
+  }
 })
 
 // Redémarrer l'animation si la valeur finale change
