@@ -22,3 +22,7 @@ logs
 .env
 .env.*
 !.env.example
+
+# Fichiers Mac
+*.DS_Store
+._*
