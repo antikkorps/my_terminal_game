@@ -19,11 +19,18 @@
       @touchstart="handleTouchStart"
       @touchmove="handleTouchMove"
     >
+      <!-- Message initial en mode narratif -->
+      <div
+        v-if="initialMessage && !initialMessageShown"
+        class="mb-3 text-blue-400 whitespace-pre-wrap"
+      >
+        {{ initialMessage }}
+      </div>
+
+      <!-- Historique des commandes et sorties -->
       <div v-for="(line, index) in outputLines" :key="index">
         <div v-if="line.type === 'command'" class="flex flex-wrap">
-          <span class="text-green-400 mr-2 whitespace-nowrap"
-            >{{ currentUser }}@linux:{{ currentDirectory }}$</span
-          >
+          <span class="text-green-400 mr-2 whitespace-nowrap">{{ displayPrompt }}</span>
           <span class="break-all">{{ line.content }}</span>
         </div>
         <div
@@ -38,13 +45,23 @@
         >
           {{ line.content }}
         </div>
+        <div
+          v-else-if="line.type === 'system'"
+          class="text-blue-400 whitespace-pre-wrap break-all italic"
+        >
+          {{ line.content }}
+        </div>
+        <div
+          v-else-if="line.type === 'success'"
+          class="text-green-500 whitespace-pre-wrap break-all font-bold"
+        >
+          {{ line.content }}
+        </div>
       </div>
 
       <!-- Ligne de commande active -->
-      <div class="flex flex-wrap">
-        <span class="text-green-400 mr-2 whitespace-nowrap"
-          >{{ currentUser }}@linux:{{ currentDirectory }}$</span
-        >
+      <div class="flex flex-wrap" v-if="!missionCompleted">
+        <span class="text-green-400 mr-2 whitespace-nowrap">{{ displayPrompt }}</span>
         <input
           ref="commandInput"
           v-model="currentCommand"
@@ -58,8 +75,16 @@
         />
       </div>
 
+      <!-- Message de mission complétée -->
+      <div v-else class="mt-4 text-green-400 font-bold">
+        Mission accomplie! Objectif atteint.
+      </div>
+
       <!-- Boutons spéciaux pour mobile -->
-      <div class="mobile-controls mt-4 grid grid-cols-4 gap-1 sm:hidden">
+      <div
+        v-if="!missionCompleted"
+        class="mobile-controls mt-4 grid grid-cols-4 gap-1 sm:hidden"
+      >
         <button
           v-for="(cmd, index) in commonCommands"
           :key="index"
@@ -74,9 +99,10 @@
 </template>
 
 <script setup>
-import { nextTick, onMounted, ref, watch } from "vue"
+import { computed, nextTick, onMounted, ref, watch } from "vue"
 
 const props = defineProps({
+  // Props existants
   lesson: {
     type: Object,
     default: () => ({}),
@@ -85,51 +111,78 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // Nouveaux props pour le mode aventure
+  customPrompt: {
+    type: String,
+    default: null,
+  },
+  validCommands: {
+    type: Array,
+    default: () => null,
+  },
+  initialMessage: {
+    type: String,
+    default: "",
+  },
+  successCondition: {
+    type: Function,
+    default: null,
+  },
+  fileSystem: {
+    type: Object,
+    default: null,
+  },
 })
 
-const emit = defineEmits(["lesson-completed"])
+const emit = defineEmits(["lesson-completed", "mission-completed"])
 
 // État du terminal
 const currentCommand = ref("")
-const outputLines = ref([
-  { type: "output", content: "Terminal Linux v1.0.0" },
-  { type: "output", content: 'Tapez "help" pour afficher les commandes disponibles.\n' },
-])
+const outputLines = ref([])
 const commandHistory = ref([])
 const historyPosition = ref(-1)
 const currentDirectory = ref("~")
 const currentUser = ref("user")
 const terminalOutput = ref(null)
 const commandInput = ref(null)
+const initialMessageShown = ref(false)
+const missionCompleted = ref(false)
 
 // Commandes courantes pour les boutons mobiles
 const commonCommands = ref(["ls", "cd", "pwd", "cat", "clear", "help"])
+
+// Prompt personnalisé pour l'affichage
+const displayPrompt = computed(() => {
+  return props.customPrompt || `${currentUser.value}@linux:${currentDirectory.value}$`
+})
 
 // Variables pour la détection de défilement tactile
 let touchStartY = 0
 let scrolling = false
 
 // Système de fichiers simulé
-const fileSystem = ref({
-  "~": {
-    type: "directory",
-    content: {
-      Documents: {
-        type: "directory",
-        content: {
-          "notes.txt": { type: "file", content: "Mes notes pour le cours Linux" },
+const fileSystemData = ref(
+  props.fileSystem || {
+    "~": {
+      type: "directory",
+      content: {
+        Documents: {
+          type: "directory",
+          content: {
+            "notes.txt": { type: "file", content: "Mes notes pour le cours Linux" },
+          },
         },
+        Desktop: {
+          type: "directory",
+          content: {},
+        },
+        "hello.txt": { type: "file", content: "Hello, World!" },
       },
-      Desktop: {
-        type: "directory",
-        content: {},
-      },
-      "hello.txt": { type: "file", content: "Hello, World!" },
     },
-  },
-})
+  }
+)
 
-// Commandes exécutées dans cette leçon
+// Commandes exécutées dans cette session
 const executedCommands = ref([])
 
 // Se concentre sur l'input et scroll en bas du terminal
@@ -154,8 +207,6 @@ const handleTouchMove = (e) => {
   if (Math.abs(diff) > 5) {
     scrolling = true
   }
-
-  // Permet au navigateur de gérer le défilement naturel
 }
 
 // Insérer une commande depuis les boutons
@@ -181,34 +232,54 @@ const executeCommand = () => {
   // Traiter la commande
   processCommand(command)
 
-  // Vérifier si l'objectif de la leçon est atteint
-  if (
-    !props.freeMode &&
-    props.lesson.successCondition &&
-    props.lesson.successCondition(executedCommands.value)
-  ) {
-    outputLines.value.push({
-      type: "output",
-      content: "\n🎉 Félicitations ! Vous avez complété cette leçon ! 🎉\n",
-    })
-    emit("lesson-completed")
-  }
+  // S'assurer que le message initial est considéré comme affiché
+  initialMessageShown.value = true
+
+  // Vérifier si l'objectif est atteint
+  checkObjective()
 
   currentCommand.value = ""
   focusAndScroll()
 }
 
+// Vérifie si l'objectif de la mission est atteint
+const checkObjective = () => {
+  if (props.successCondition && !missionCompleted.value) {
+    const success = props.successCondition(executedCommands.value, outputLines.value)
+    if (success) {
+      missionCompleted.value = true
+      outputLines.value.push({
+        type: "success",
+        content: "🎉 Mission accomplie! Vous avez atteint l'objectif! 🎉",
+      })
+
+      // Émettre un événement pour informer le parent
+      emit("mission-completed", true)
+    }
+  }
+}
+
 // Traite la commande saisie
 const processCommand = (command) => {
-  // Vérifier si la commande est autorisée dans cette leçon
-  if (
-    !props.freeMode &&
-    props.lesson.validCommands &&
-    !props.lesson.validCommands.includes(command.split(" ")[0])
-  ) {
+  // Vérifier si la commande est autorisée
+  const firstWord = command.split(" ")[0]
+  const allowedCommands = props.validCommands ||
+    props.lesson?.validCommands || [
+      "ls",
+      "cd",
+      "pwd",
+      "cat",
+      "clear",
+      "help",
+      "mkdir",
+      "touch",
+      "echo",
+    ]
+
+  if (!props.freeMode && !allowedCommands.includes(firstWord)) {
     outputLines.value.push({
       type: "error",
-      content: `Commande '${command}' non disponible dans cette leçon.`,
+      content: `Commande '${firstWord}' non disponible dans cette mission.`,
     })
     return
   }
@@ -218,7 +289,7 @@ const processCommand = (command) => {
 
   switch (cmd) {
     case "help":
-      showHelp()
+      showHelp(allowedCommands)
       break
     case "clear":
       outputLines.value = []
@@ -238,8 +309,32 @@ const processCommand = (command) => {
     case "cat":
       catFile(args[0])
       break
+    case "mkdir":
+      createDirectory(args[0])
+      break
+    case "touch":
+      createFile(args[0])
+      break
     case "echo":
       outputLines.value.push({ type: "output", content: args.join(" ") })
+      break
+    case "rm":
+      removeFile(args)
+      break
+    case "cp":
+      copyFile(args)
+      break
+    case "mv":
+      moveFile(args)
+      break
+    case "find":
+      findFiles(args)
+      break
+    case "grep":
+      grepContent(args)
+      break
+    case "chmod":
+      changePermissions(args)
       break
     default:
       outputLines.value.push({ type: "error", content: `Commande non reconnue: ${cmd}` })
@@ -247,26 +342,35 @@ const processCommand = (command) => {
 }
 
 // Commande help
-const showHelp = () => {
-  let availableCommands = [
-    "help - Affiche cette liste de commandes",
-    "clear - Efface l'écran du terminal",
-    "ls [dossier] - Liste le contenu du dossier",
-    "pwd - Affiche le chemin du dossier actuel",
-    "cd [dossier] - Change le dossier courant",
-    "cat [fichier] - Affiche le contenu d'un fichier",
-    "echo [texte] - Affiche le texte sur le terminal",
-  ]
+const showHelp = (allowedCommands) => {
+  const allCommands = {
+    help: "Affiche cette liste de commandes",
+    clear: "Efface l'écran du terminal",
+    ls: "Liste le contenu du dossier",
+    pwd: "Affiche le chemin du dossier actuel",
+    cd: "Change le dossier courant",
+    cat: "Affiche le contenu d'un fichier",
+    mkdir: "Crée un nouveau répertoire",
+    touch: "Crée un fichier vide",
+    echo: "Affiche du texte dans le terminal",
+    rm: "Supprime un fichier ou dossier",
+    cp: "Copie un fichier ou dossier",
+    mv: "Déplace ou renomme un fichier ou dossier",
+    find: "Recherche des fichiers",
+    grep: "Recherche du contenu dans des fichiers",
+    chmod: "Modifie les permissions d'un fichier",
+  }
 
-  if (!props.freeMode && props.lesson.validCommands) {
-    outputLines.value.push({
-      type: "output",
-      content: "📚 Commandes disponibles dans cette leçon:",
-    })
+  outputLines.value.push({
+    type: "system",
+    content: "📚 Commandes disponibles dans cette mission:",
+  })
 
-    availableCommands = availableCommands.filter((cmd) =>
-      props.lesson.validCommands.includes(cmd.split(" ")[0])
-    )
+  const availableCommands = []
+  for (const cmd of allowedCommands) {
+    if (allCommands[cmd]) {
+      availableCommands.push(`${cmd} - ${allCommands[cmd]}`)
+    }
   }
 
   outputLines.value.push({
@@ -349,6 +453,249 @@ const catFile = (path) => {
   outputLines.value.push({ type: "output", content: file.content })
 }
 
+// Commande mkdir
+const createDirectory = (path) => {
+  if (!path) {
+    outputLines.value.push({ type: "error", content: "mkdir: argument manquant" })
+    return
+  }
+
+  const targetPath = resolvePath(path)
+  const parentPath = targetPath.split("/").slice(0, -1).join("/") || "~"
+  const parentDir = getNodeAtPath(parentPath)
+
+  if (!parentDir || parentDir.type !== "directory") {
+    outputLines.value.push({
+      type: "error",
+      content: `mkdir: ${path}: Aucun fichier ou dossier de ce type`,
+    })
+    return
+  }
+
+  const dirName = targetPath.split("/").pop()
+  if (parentDir.content[dirName]) {
+    outputLines.value.push({
+      type: "error",
+      content: `mkdir: ${path}: Le fichier existe déjà`,
+    })
+    return
+  }
+
+  parentDir.content[dirName] = { type: "directory", content: {} }
+  outputLines.value.push({ type: "output", content: `mkdir: ${path}: Dossier créé` })
+}
+
+// Commande touch
+const createFile = (path) => {
+  if (!path) {
+    outputLines.value.push({ type: "error", content: "touch: argument manquant" })
+    return
+  }
+
+  const targetPath = resolvePath(path)
+  const parentPath = targetPath.split("/").slice(0, -1).join("/") || "~"
+  const parentDir = getNodeAtPath(parentPath)
+
+  if (!parentDir || parentDir.type !== "directory") {
+    outputLines.value.push({
+      type: "error",
+      content: `touch: ${path}: Aucun fichier ou dossier de ce type`,
+    })
+    return
+  }
+
+  const fileName = targetPath.split("/").pop()
+  if (parentDir.content[fileName]) {
+    outputLines.value.push({
+      type: "error",
+      content: `touch: ${path}: Le fichier existe déjà`,
+    })
+    return
+  }
+
+  parentDir.content[fileName] = { type: "file", content: "" }
+  outputLines.value.push({ type: "output", content: `touch: ${path}: Fichier créé` })
+}
+
+// Commande rm
+const removeFile = (args) => {
+  if (args.length === 0) {
+    outputLines.value.push({ type: "error", content: "rm: argument manquant" })
+    return
+  }
+
+  const targetPath = resolvePath(args[0])
+  const parentPath = targetPath.split("/").slice(0, -1).join("/") || "~"
+  const parentDir = getNodeAtPath(parentPath)
+
+  if (!parentDir || parentDir.type !== "directory") {
+    outputLines.value.push({
+      type: "error",
+      content: `rm: ${args[0]}: Aucun fichier ou dossier de ce type`,
+    })
+    return
+  }
+
+  const fileName = targetPath.split("/").pop()
+  if (!parentDir.content[fileName]) {
+    outputLines.value.push({
+      type: "error",
+      content: `rm: ${args[0]}: Aucun fichier ou dossier de ce type`,
+    })
+    return
+  }
+
+  delete parentDir.content[fileName]
+  outputLines.value.push({ type: "output", content: `rm: ${args[0]}: Fichier supprimé` })
+}
+
+// Commande cp
+const copyFile = (args) => {
+  if (args.length < 2) {
+    outputLines.value.push({ type: "error", content: "cp: arguments manquants" })
+    return
+  }
+
+  const sourcePath = resolvePath(args[0])
+  const destPath = resolvePath(args[1])
+  const sourceFile = getNodeAtPath(sourcePath)
+  const destParentPath = destPath.split("/").slice(0, -1).join("/") || "~"
+  const destParentDir = getNodeAtPath(destParentPath)
+
+  if (!sourceFile) {
+    outputLines.value.push({
+      type: "error",
+      content: `cp: ${args[0]}: Aucun fichier ou dossier de ce type`,
+    })
+    return
+  }
+
+  if (!destParentDir || destParentDir.type !== "directory") {
+    outputLines.value.push({
+      type: "error",
+      content: `cp: ${args[1]}: Aucun fichier ou dossier de ce type`,
+    })
+    return
+  }
+
+  const destFileName = destPath.split("/").pop()
+  destParentDir.content[destFileName] = { ...sourceFile }
+  outputLines.value.push({ type: "output", content: `cp: ${args[0]} -> ${args[1]}` })
+}
+
+// Commande mv
+const moveFile = (args) => {
+  if (args.length < 2) {
+    outputLines.value.push({ type: "error", content: "mv: arguments manquants" })
+    return
+  }
+
+  const sourcePath = resolvePath(args[0])
+  const destPath = resolvePath(args[1])
+  const sourceFile = getNodeAtPath(sourcePath)
+  const sourceParentPath = sourcePath.split("/").slice(0, -1).join("/") || "~"
+  const sourceParentDir = getNodeAtPath(sourceParentPath)
+  const destParentPath = destPath.split("/").slice(0, -1).join("/") || "~"
+  const destParentDir = getNodeAtPath(destParentPath)
+
+  if (!sourceFile) {
+    outputLines.value.push({
+      type: "error",
+      content: `mv: ${args[0]}: Aucun fichier ou dossier de ce type`,
+    })
+    return
+  }
+
+  if (!destParentDir || destParentDir.type !== "directory") {
+    outputLines.value.push({
+      type: "error",
+      content: `mv: ${args[1]}: Aucun fichier ou dossier de ce type`,
+    })
+    return
+  }
+
+  const destFileName = destPath.split("/").pop()
+  destParentDir.content[destFileName] = { ...sourceFile }
+  delete sourceParentDir.content[sourcePath.split("/").pop()]
+  outputLines.value.push({ type: "output", content: `mv: ${args[0]} -> ${args[1]}` })
+}
+
+// Commande find
+const findFiles = (args) => {
+  if (args.length === 0) {
+    outputLines.value.push({ type: "error", content: "find: argument manquant" })
+    return
+  }
+
+  const searchTerm = args[0]
+  const results = []
+
+  const search = (dir, path) => {
+    for (const [name, node] of Object.entries(dir.content)) {
+      const fullPath = `${path}/${name}`
+      if (name.includes(searchTerm)) {
+        results.push(fullPath)
+      }
+      if (node.type === "directory") {
+        search(node, fullPath)
+      }
+    }
+  }
+
+  search(fileSystemData.value["~"], "~")
+  outputLines.value.push({ type: "output", content: results.join("\n") })
+}
+
+// Commande grep
+const grepContent = (args) => {
+  if (args.length < 2) {
+    outputLines.value.push({ type: "error", content: "grep: arguments manquants" })
+    return
+  }
+
+  const searchTerm = args[0]
+  const filePath = resolvePath(args[1])
+  const file = getNodeAtPath(filePath)
+
+  if (!file || file.type !== "file") {
+    outputLines.value.push({
+      type: "error",
+      content: `grep: ${args[1]}: Aucun fichier ou dossier de ce type`,
+    })
+    return
+  }
+
+  const lines = file.content.split("\n")
+  const matchingLines = lines.filter((line) => line.includes(searchTerm))
+  outputLines.value.push({ type: "output", content: matchingLines.join("\n") })
+}
+
+// Commande chmod
+const changePermissions = (args) => {
+  if (args.length < 2) {
+    outputLines.value.push({ type: "error", content: "chmod: arguments manquants" })
+    return
+  }
+
+  const permissions = args[0]
+  const filePath = resolvePath(args[1])
+  const file = getNodeAtPath(filePath)
+
+  if (!file) {
+    outputLines.value.push({
+      type: "error",
+      content: `chmod: ${args[1]}: Aucun fichier ou dossier de ce type`,
+    })
+    return
+  }
+
+  file.permissions = permissions
+  outputLines.value.push({
+    type: "output",
+    content: `chmod: ${args[1]}: Permissions modifiées`,
+  })
+}
+
 // Navigation dans l'historique des commandes
 const navigateHistory = (direction) => {
   if (commandHistory.value.length === 0) return
@@ -423,10 +770,10 @@ const resolvePath = (path) => {
 
 // Récupère un nœud (fichier/dossier) depuis le système de fichiers
 const getNodeAtPath = (path) => {
-  if (path === "~") return fileSystem.value["~"]
+  if (path === "~") return fileSystemData.value["~"]
 
   const segments = path.split("/")
-  let current = fileSystem.value["~"]
+  let current = fileSystemData.value["~"]
 
   for (let i = 1; i < segments.length; i++) {
     if (!current || current.type !== "directory") return null
